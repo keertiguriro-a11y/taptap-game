@@ -1,0 +1,100 @@
+/* Deep Dark Cinematic Background */
+body {
+    background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+}
+
+/* UI Layer for Score and Emoji */
+#ui-layer {
+    position: absolute;
+    top: 5%;
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+}
+
+#ui-layer h1 {
+    font-size: 1rem;
+    letter-spacing: 3px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#score {
+    font-size: 4rem;
+    font-weight: bold;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+#hintText {
+    height: 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* The Game Board - Neon Glow */
+#gameCanvas {
+    border-radius: 50%;
+    box-shadow: 0 0 60px rgba(255, 255, 255, 0.1), 0 0 100px rgba(0, 0, 0, 0.5);
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    max-width: 90vw;
+    max-height: 90vw;
+}
+
+/* Menu Overlay (Squid Game Theme) */
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+#overlay h1 {
+    margin-bottom: 5px;
+    text-shadow: 0 0 15px #00bfff;
+}
+
+/* The Start Button - Interactive & Glowy */
+button {
+    background: transparent;
+    border: 2px solid #00bfff;
+    color: #00bfff;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 50px;
+    transition: all 0.3s;
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.3);
+    margin-top: 20px;
+}
+
+button:hover {
+    background: #00bfff;
+    color: black;
+    box-shadow: 0 0 30px #00bfff;
+    transform: scale(1.05);
+}
+
+/* Utility to hide the menu when game starts */
+.hidden {
+    display: none !important;
+}

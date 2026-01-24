@@ -1,0 +1,17 @@
+{
+  "short_name": "TAPTAP",
+  "name": "TAPTAP: The Challenge",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5690/5690325.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#000000",
+  "background_color": "#000000"
+}
