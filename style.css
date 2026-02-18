@@ -98,3 +98,20 @@ button:hover {
 .hidden {
     display: none !important;
 }
+.glitch-shake {
+    animation: shake 0.1s infinite;
+    filter: hue-rotate(180deg) invert(1);
+}
+
+@keyframes shake {
+    0% { transform: translate(5px, 5px); }
+    50% { transform: translate(-5px, -5px); }
+    100% { transform: translate(0); }
+}
+
+#timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(to right, #ff4d4d, #ffd700);
+    transition: width 0.1s linear;
+}
