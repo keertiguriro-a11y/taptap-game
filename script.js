@@ -1,197 +1,163 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const startBtn = document.getElementById('startBtn');
 const overlay = document.getElementById('overlay');
-const scoreDisplay = document.getElementById('score');
-const hintText = document.getElementById('hintText');
-const timerBar = document.getElementById('timer-bar');
+const startBtn = document.getElementById('startBtn');
+const titleText = document.getElementById('titleText');
 
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playNote(frequency) {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.5);
-}
-
-const colors = {
-    red: { normal: '#ff4d4d', bright: '#ffcccc', x: 0, y: 0, note: 329.63 },
-    blue: { normal: '#4d94ff', bright: '#cce0ff', x: 200, y: 0, note: 261.63 },
-    green: { normal: '#4dff88', bright: '#ccffdd', x: 0, y: 200, note: 392.00 },
-    yellow: { normal: '#ffff4d', bright: '#ffffcc', x: 200, y: 200, note: 220.00 }
-};
-
-let sequence = [];
-let playerSequence = [];
 let score = 0;
-let acceptingInput = false;
-let timeLeft = 100;
-let timerInterval;
-let gameSpeed = 1000;
-let lastTapTime = 0;
-let rotationAngle = 0;
+let highScore = localStorage.getItem('taptap_best') || 0;
+let gameSequence = [];
+let userSequence = [];
+let canTap = false;
+let computerSpeed = 600; // Slower so you can see it easily
+let gameMode = 'simon'; 
+let ballLocation = 0;
 
-function drawBoard(highlightColor = null) {
-    ctx.save();
+const buttons = [
+    { id: 'red', color: '#ff4d4d', light: '#ff9999', x: 50, y: 50 },
+    { id: 'blue', color: '#4d94ff', light: '#99c2ff', x: 210, y: 50 },
+    { id: 'green', color: '#4dff4d', light: '#99ff99', x: 50, y: 210 },
+    { id: 'yellow', color: '#ffff4d', light: '#ffff99', x: 210, y: 210 }
+];
+
+// 1. DRAWING FUNCTION
+function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (gameMode === 'simon') {
+        buttons.forEach(btn => {
+            ctx.fillStyle = btn.color;
+            ctx.beginPath();
+            ctx.roundRect(btn.x, btn.y, 140, 140, 25);
+            ctx.fill();
+        });
+    } else {
+        // CUP GAME VISUALS
+        [60, 160, 260].forEach((x, i) => {
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.moveTo(x, 250); ctx.lineTo(x + 80, 250);
+            ctx.lineTo(x + 70, 150); ctx.lineTo(x + 10, 150);
+            ctx.closePath(); ctx.fill();
+        });
+    }
+}
+
+// 2. GLOW EFFECT (Makes screen "glow" when tapped)
+function flash(id) {
+    const btn = buttons.find(b => b.id === id);
+    if (!btn) return;
+    ctx.fillStyle = btn.light; // Use the lighter glow color
+    ctx.beginPath(); 
+    ctx.roundRect(btn.x, btn.y, 140, 140, 25); 
+    ctx.fill();
+    // Revert to normal after a short time
+    setTimeout(draw, 200); 
+}
+
+// 3. COMPUTER SEQUENCE (Plays EVERYTHING for that level)
+function playSequence(index) {
+    canTap = false; 
+    if (index >= gameSequence.length) { 
+        canTap = true; 
+        return; 
+    }
     
-    // Board starts rotating slowly at score 10 for "Hard Mode"
-    if (score >= 10) {
-        rotationAngle += 0.008; 
-        ctx.translate(200, 200);
-        ctx.rotate(rotationAngle);
-        ctx.translate(-200, -200);
-    }
-
-    for (let key in colors) {
-        const color = colors[key];
-        ctx.fillStyle = (highlightColor === key) ? color.bright : color.normal;
-        ctx.fillRect(color.x, color.y, 200, 200);
-    }
+    flash(gameSequence[index]);
     
-    ctx.strokeStyle = '#121212';
-    ctx.lineWidth = 15;
-    ctx.strokeRect(0,0,400,400);
-    ctx.beginPath();
-    ctx.moveTo(200, 0); ctx.lineTo(200, 400);
-    ctx.moveTo(0, 200); ctx.lineTo(400, 200);
-    ctx.stroke();
-    ctx.restore();
-
-    // Re-draw if board is rotating to keep animation smooth
-    if (rotationAngle > 0 && acceptingInput) {
-        requestAnimationFrame(() => drawBoard());
-    }
-}
-
-function flashColor(colorKey) {
-    playNote(colors[colorKey].note);
-    drawBoard(colorKey);
-    setTimeout(() => drawBoard(), 300); 
-}
-
-function startTimer() {
-    clearInterval(timerInterval);
-    timeLeft = 100;
-    // ADJUSTED: Multiplier increased from 10 to 15 for a slower drain
-    const timerDifficulty = Math.max(15, gameSpeed / 15); 
-    timerInterval = setInterval(() => {
-        timeLeft -= 1;
-        timerBar.style.width = timeLeft + "%";
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            gameOver("TIME OUT!");
-        }
-    }, timerDifficulty);
-}
-
-function playSequence() {
-    acceptingInput = false;
-    let i = 0;
-    const interval = setInterval(() => {
-        flashColor(sequence[i]);
-        i++;
-        if (i >= sequence.length) {
-            clearInterval(interval);
-            setTimeout(() => { 
-                acceptingInput = true; 
-                hintText.innerText = "GO!";
-                startTimer();
-                lastTapTime = Date.now(); 
-            }, 500);
-        }
-    }, gameSpeed);
-}
-
-function getRank(s) {
-    if (s < 5) return "Subject 001 👤";
-    if (s < 10) return "Survivor 🏃";
-    if (s < 15) return "Elite Player 🏅";
-    return "The Leader 👑";
+    // Time between computer taps
+    setTimeout(() => {
+        playSequence(index + 1);
+    }, computerSpeed);
 }
 
 function nextLevel() {
-    playerSequence = [];
-    const keys = Object.keys(colors);
-    const randomColor = keys[Math.floor(Math.random() * keys.length)];
-    sequence.push(randomColor);
+    userSequence = [];
+    score++;
     
-    const turnDuration = Date.now() - lastTapTime;
+    // Add one new random button to the sequence
+    gameSequence.push(buttons[Math.floor(Math.random() * 4)].id);
     
-    if (score > 0) {
-        if (turnDuration < 2000) { 
-            // Small speed-up for pro players
-            gameSpeed = Math.max(400, gameSpeed - 50); 
-            hintText.innerText = "NICE PACE! ⚡";
-        } else if (turnDuration > 5000) {
-            // Help the player if they were slow
-            gameSpeed = Math.min(1200, gameSpeed + 50);
-            hintText.innerText = "Breathing room... ✨";
-        } else {
-            // Very subtle difficulty increase
-            gameSpeed = Math.max(400, gameSpeed - 10);
-            hintText.innerText = `Rank: ${getRank(score)}`;
-        }
-    }
-    setTimeout(playSequence, 800);
-}
-
-function gameOver(reason = "ELIMINATED") {
-    clearInterval(timerInterval);
-    acceptingInput = false;
-    overlay.classList.remove('hidden');
-    document.getElementById('titleText').innerText = reason;
-    document.getElementById('subText').innerText = `Final Rank: ${getRank(score)}`;
-    startBtn.innerText = "RESTART MISSION";
-}
-
-const handleInput = (e) => {
-    if (!acceptingInput) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-    const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-    
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
-    // Detect color quadrant based on click
-    let clickedColor = "";
-    if (x < 200 && y < 200) clickedColor = "red";
-    else if (x >= 200 && y < 200) clickedColor = "blue";
-    else if (x < 200 && y >= 200) clickedColor = "green";
-    else if (x >= 200 && y >= 200) clickedColor = "yellow";
-
-    flashColor(clickedColor);
-
-    if (clickedColor === sequence[playerSequence.length]) {
-        playerSequence.push(clickedColor);
-        if (playerSequence.length === sequence.length) {
-            score++;
-            scoreDisplay.innerText = score;
-            clearInterval(timerInterval);
-            setTimeout(nextLevel, 600);
-        }
+    // Trigger Cup Bonus every 5 levels
+    if (score % 5 === 0) {
+        gameMode = 'cups';
+        triggerCups();
     } else {
-        gameOver();
+        gameMode = 'simon';
+        // Play the WHOLE sequence from the start
+        setTimeout(() => playSequence(0), 500);
     }
-};
+}
 
-canvas.addEventListener('mousedown', handleInput);
-canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); });
+// 4. THE "WEIRD" CUP GAME FIX
+function triggerCups() {
+    overlay.style.display = 'flex';
+    titleText.innerText = "BONUS: CUP GAME";
+    startBtn.innerText = "START BONUS";
+    startBtn.onclick = () => {
+        overlay.style.display = 'none';
+        ballLocation = Math.floor(Math.random() * 3);
+        draw();
+        // Show the ball briefly
+        const bx = [60, 160, 260][ballLocation];
+        ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(bx + 40, 230, 15, 0, Math.PI*2); ctx.fill();
+        setTimeout(() => { draw(); canTap = true; }, 1000);
+    };
+}
 
-startBtn.addEventListener('click', () => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    score = 0; sequence = []; gameSpeed = 1000; rotationAngle = 0;
-    scoreDisplay.innerText = score;
-    overlay.classList.add('hidden');
-    nextLevel();
+// 5. INPUT HANDLING (Your Taps)
+canvas.addEventListener('mousedown', (e) => {
+    if (!canTap) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (gameMode === 'simon') {
+        buttons.forEach(btn => {
+            if (x > btn.x && x < btn.x + 140 && y > btn.y && y < btn.y + 140) {
+                flash(btn.id); // MAKE IT GLOW ON YOUR TAP
+                userSequence.push(btn.id);
+                
+                // Check if you tapped the wrong button
+                if (userSequence[userSequence.length - 1] !== gameSequence[userSequence.length - 1]) {
+                    gameOver();
+                } 
+                // Check if you finished the sequence for this level
+                else if (userSequence.length === gameSequence.length) {
+                    canTap = false;
+                    setTimeout(nextLevel, 800);
+                }
+            }
+        });
+    } else {
+        // Cup Game logic
+        [60, 160, 260].forEach((cx, i) => {
+            if (x > cx && x < cx + 80 && y > 150 && y < 250) {
+                if (i === ballLocation) { score += 4; nextLevel(); }
+                else gameOver();
+            }
+        });
+    }
 });
 
-drawBoard();
+function gameOver() {
+    canTap = false;
+    overlay.style.display = 'flex';
+    titleText.innerHTML = `ELIMINATED<br><span style="color:gold;">BEST: ${highScore} | LEVEL: ${score}</span>`;
+    
+    document.querySelectorAll('.new-btn').forEach(b => b.remove());
+
+    const wa = document.createElement('button');
+    wa.className = 'new-btn';
+    wa.innerText = "SHARE ON WHATSAPP 🚀";
+    wa.style.cssText = "display:block; width:220px; margin:10px auto; padding:15px; background:#25D366; color:white; border:none; border-radius:10px; font-weight:bold;";
+    wa.onclick = () => window.open(`https://wa.me/?text=I hit Level ${score}! Beat me: ${window.location.href}`);
+    overlay.insertBefore(wa, startBtn);
+
+    startBtn.innerText = "RESTART";
+    startBtn.onclick = () => location.reload();
+    if (score > highScore) localStorage.setItem('taptap_best', score);
+}
+
+draw();
+overlay.style.display = 'flex';
+startBtn.onclick = () => { overlay.style.display = 'none'; nextLevel(); };
